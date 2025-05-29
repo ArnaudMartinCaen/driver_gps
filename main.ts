@@ -93,13 +93,24 @@ namespace GPS_AT6558 {
     }
 
     /** 
-        Calcule le checksum d'une trame NMEA sans le $
-        @param data Le texte sur lequel appliquer le XOR
+        Calcule le checksum d'une trame NMEA
+        @param trame Le texte sur lequel appliquer le XOR
+        @returns Valeur numérique du checksum (0–255)
     **/
-    //% block="Calcul Checksum d'une trame $data"
-    export function calculateChecksum(data: string): number {
+    //% block="Calcul Checksum d'une trame $trame"
+    export function calculateChecksum(trame: string): number {
+        // Vérifie que la trame commence bien par '$' et contient '*'
+        if (trame.charAt(0) != "$" || trame.indexOf("*") == -1) {
+            return -1  // ou tu peux throw une erreur si tu préfères
+        }
+        // Extrait la portion entre $ et *
+        let start = 1
+        let end = trame.indexOf("*")
+        let data = trame.slice(start, end)
+
+        // Calcule le XOR de tous les caractères
         let checksum = 0
-        for (let i = 1; i < data.length - 5; i++) {
+        for (let i = 0; i < data.length; i++) {
             checksum ^= data.charCodeAt(i)
         }
         return checksum
@@ -107,11 +118,17 @@ namespace GPS_AT6558 {
 
     /** 
         Vérifie le checksum d'une trame NMEA
-        @param data LA trame à tester
+        @param trame LA trame à tester
     **/
-    //% block="Validation d'une trame $data"
-    export function checkTrame(data: string): boolean {
-        return calculateChecksum(data) == parseInt(data.slice(-4, -2), 16)
+    //% block="Validation d'une trame $trame"
+    export function checkTrame(trame: string): boolean {
+        let sepIndex = trame.indexOf("*")
+        if (trame.charAt(0) != "$" || sepIndex == -1) {
+            return false
+        }
+        let expected = parseInt(trame.slice(sepIndex + 1, sepIndex + 3), 16)
+        let actual = calculateChecksum(trame)
+        return expected == actual
     }
 
     /** 
