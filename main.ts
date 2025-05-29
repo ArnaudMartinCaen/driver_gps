@@ -42,6 +42,13 @@ namespace GPS_AT6558 {
             case TrameType.GNGGA: return "GNGGA"
             case TrameType.GNGLL: return "GNGLL"
             case TrameType.GPGSA: return "GPGSA"
+            case TrameType.BDGSA: return "BDGSA"
+            case TrameType.GPGSV: return "GPGSV"
+            case TrameType.BDGSV: return "BDGSV"
+            case TrameType.GNRMC: return "GNRMC"
+            case TrameType.GNVTG: return "GNVTG"
+            case TrameType.GNZDA: return "GNZDA"
+            case TrameType.GPTXT: return "GPTXT"
             default: return ""
         }
     }
@@ -58,22 +65,31 @@ namespace GPS_AT6558 {
         serial.redirect(SerialPin.USB_TX, toSerialPin(rx), 9600)
         serial.setTxBufferSize(128)
         serial.setRxBufferSize(128)
+        serial.readUntil("\n") // nettoyer une trame éventuelle en attente
     }
 
     /**
-        Récupération d'une trame compléte GNGGA
+        Récupération d'une trame compléte
         @param identifiant Le choix du type de trame à lire
+        @param timeout Temps maximum en millisecondes
     **/
-    //% block="Récupérer une trame du type $identifiant"
+    //% block="Récupérer une trame du type $identifiant avec un timeout de $timeout"
     //% identifiant.defl=TrameType.GNGGA
-    export function getTrameGNGGA(identifiant: TrameType): string {
+    //% timeout.defl=5000 
+    export function getTrameNMEA(identifiant: TrameType, timeout: number): string {
         let idTrame = nomTrame(identifiant)
-        while (true) {
-            const trame = serial.readUntil(serial.delimiters(Delimiters.Dollar))
-            if (trame.slice(0, 5) == idTrame) {
-                return "$" + trame
+        let start = control.millis()
+        while (control.millis() - start < timeout) {
+            const trame = serial.readUntil("\n").trim()
+            if (trame && trame.includes(",")) {
+                let id = trame.split(",")[0]
+                if (id == "$" + idTrame) {
+                    return trame
+                }
             }
+            basic.pause(10)
         }
+        return ""
     }
 
     /** 
@@ -103,9 +119,9 @@ namespace GPS_AT6558 {
     **/
     //% block="Récupération de la latitude "
     export function getLatitude(): number {
-        let trame = getTrameGNGGA(TrameType.GNGGA)
+        let trame = getTrameNMEA(TrameType.GNGGA, 5000)
         while (checkTrame(trame) != true) {
-            trame = getTrameGNGGA(TrameType.GNGGA)
+            trame = getTrameNMEA(TrameType.GNGGA, 5000)
         }
         let liste_val = _py.py_string_split(trame, ",")
         if (liste_val[3] == "N") {
